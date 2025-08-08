@@ -1,0 +1,165 @@
+LAGGER GCS KULLANICI MANUELİ
+============================
+
+1. GİRİŞ VE GENEL BAKIŞ
+-----------------------
+Lagger GCS, insansız hava aracı (İHA) görevlerinizi planlamak, yönetmek ve izlemek için geliştirilmiş kapsamlı bir yer kontrol istasyonu arayüzüdür. Bu manuel, arayüzdeki tüm fonksiyonları ve kullanım adımlarını detaylıca açıklar. Tüm panelleri ve butonları öğrendikten sonra arayüzü tam anlamıyla kullanabileceksiniz.
+
+2. ANA PENCERE DÜZENİ VE PANELLERİN TANITIMI
+---------------------------------------------
+Ana pencere üç ana sütundan oluşur:
+- Sol: Uçuş Paneli ve Kontrol Paneli
+- Orta: Harita Paneli ve Görev (Mission) Paneli
+- Sağ: Bağlantı, Telemetri, Gelişmiş Telemetri, Güvenlik ve Otonomi Panelleri (sekme şeklinde)
+
+3. BAĞLANTI PANELİ
+------------------
+- **Port ve Baudrate Seçimi:** Uygun portu ve baudrate'i seçin. 'Yenile' ile port listesini güncelleyebilirsiniz.
+- **Bağlan:** Tüm uçuş öncesi kontrol listesini işaretlemeden bağlantı kurulamaz. Bağlantı kurulduğunda buton 'Bağlantıyı Kes' olur.
+- **Simülasyon:** Gerçek araç olmadan simülasyon başlatır.
+- **Bağlantı Durumu:** RSSI, Ping ve Veri Kaybı gibi bağlantı istatistiklerini gösterir.
+- **Uçuş Öncesi Kontrol Listesi:** Uçuş güvenliği için tüm maddeleri işaretleyin.
+- **Görev Mekanizması:** Yük bırakma görevleri için koordinat ve irtifa girip başlatabilirsiniz.
+
+4. UÇUŞ PANELİ ve HUD
+---------------------
+- **HUD (Baş Üstü Gösterge):** FPV görüntüsü, yapay ufuk, anlık telemetri (irtifa, hız, batarya, mod, ARM durumu) ve yön bilgisi gösterir.
+- **FPV Görüntüsü:** Bağlantı sağlandığında otomatik gelir.
+
+5. KONTROL PANELİ
+-----------------
+Kontrol paneli, uçuş sırasında aracı ve görevi yönetmek için ana komutları içerir. Her butonun işlevi aşağıda detaylıca açıklanmıştır:
+
+- **Görevi Başlat (F5):**
+  - Yüklenen görevi başlatır. Araca "MISSION_START" komutu gönderilir ve araç, yüklenen waypoint veya görev rotasını otonom olarak takip etmeye başlar.
+  - Kullanım: Görev yüklendikten sonra bu butona basılır.
+
+- **Görevi Duraklat (F6):**
+  - Aracın mevcut görevini geçici olarak duraklatır. Araç, bulunduğu noktada loiter (bekleme) moduna geçer ve yeni komut gelene kadar sabit kalır.
+  - Kullanım: Görev sırasında mola vermek veya acil bir durumda aracı bekletmek için kullanılır.
+
+- **Görevi İptal Et (F7):**
+  - Yürütülmekte olan görevi tamamen iptal eder. Araca "MISSION_CLEAR_ALL" komutu gönderilir ve görev hafızadan silinir. Ardından araç eve dönüş (RTL) veya iniş moduna geçer.
+  - Sonrasında aracın davranışı şuna göre belirlenir:
+    - Eğer sistemde bir "home position" (ev konumu) tanımlıysa, araca "RTL" (Return to Launch) komutu gönderilir. Yani araç kalkış yaptığı veya home olarak belirlenen noktaya otomatik olarak döner ve genellikle iniş yapar.
+    - Eğer home position yoksa, araca doğrudan "LAND" (iniş) komutu gönderilir. Yani araç bulunduğu yere güvenli bir şekilde iniş yapar.
+  - Bu sayede, mümkünse aracı eve döndürmek önceliklidir; home noktası bilinmiyorsa güvenli bir şekilde hemen iniş yapılır.
+  - Kullanım: Görevden vazgeçmek veya acil durumda görevi sonlandırmak için kullanılır.
+
+- **Manuel Moda Geç:**
+  - Aracı otonom moddan manuel moda alır. Bu sayede pilot, kumanda ile doğrudan kontrolü devralabilir.
+  - Kullanım: Otonom görev sırasında müdahale etmek veya manuel uçuşa geçmek için kullanılır.
+
+- **Eve Dön (RTH):**
+  - Aracı kalkış yapılan veya önceden belirlenen "home" noktasına otomatik olarak döndürür. Araç, güvenli bir şekilde eve döner ve genellikle iniş yapar.
+  - Kullanım: Uçuş sonunda veya acil durumda aracı güvenli bölgeye çekmek için kullanılır.
+
+- **Yükü Bırak:**
+  - Eğer araçta yük bırakma mekanizması varsa, bu buton ile yük bırakma komutu gönderilir.
+  - Kullanım: Görev sırasında belirli bir noktada yük bırakmak için kullanılır.
+
+- **Acil İniş:**
+  - Araca acil iniş komutu gönderir. Araç, bulunduğu konuma en yakın güvenli şekilde iniş yapar.
+  - Kullanım: Acil durumlarda hızlıca iniş yapmak için kullanılır.
+
+- **Eve Dön (RTL):**
+  - "Return to Launch" komutunu gönderir. Araç, kalkış yaptığı noktaya otomatik olarak döner.
+  - Kullanım: RTH ile benzer, ancak bazı sistemlerde farklı davranışlar gösterebilir.
+
+- **Motoru Kapat:**
+  - Aracın motorlarını tamamen durdurur. Güvenlik için çift tıklama veya onay gerektirir.
+  - Kullanım: Sadece acil durumlarda, yerde veya inişten sonra kullanılması önerilir.
+
+- **Veri Kaydı:**
+  - Uçuş verilerinin kaydını başlatır veya durdurur. Kayıt sırasında tüm telemetri verileri dosyaya yazılır.
+
+- **Sistem Mesajları:**
+  - Tüm önemli olaylar, uyarılar ve hata mesajları burada görüntülenir. Kullanıcı, sistemin mevcut durumu hakkında anlık bilgi alır.
+
+6. GÖREV (MISSION) PANELİ
+-------------------------
+- **Görev Tipi:** Waypoint Uçuşu, Grid Tarama, Poligon Tarama seçilebilir.
+- **İrtifa, Hız, Yarıçap:** Görev parametrelerini girin.
+- **Manuel Koordinat Girişi:** El ile waypoint ekleyebilirsiniz.
+- **Harita Üzerinden Ekleme:** 'Waypoint Ekle', 'Poligon Çiz', '8 Şekli Çiz' modları ile haritaya tıklayarak görev noktaları eklenir.
+- **Temizle:** Tüm görev noktalarını siler.
+- **Görev Oluştur:** Seçilen parametrelerle görevi oluşturur.
+- **Araca Yükle:** Görevi araca gönderir.
+- **Görev Bilgisi:** Eklenen noktalar, tahmini süre ve görev özeti burada gösterilir.
+
+7. HARİTA PANELİ
+----------------
+- **Araç, Home ve Waypoint Görselleştirme:** Aracın, home noktasının ve görev noktalarının harita üzerinde gösterimi.
+- **Harita Etkileşimi:** Görev panelinde ilgili mod aktifken haritaya tıklayarak nokta ekleyebilirsiniz.
+
+8. OTONOMİ PANELİ
+-----------------
+- **Arm/Disarm:** Aracı arm veya disarm yapar.
+- **Takeoff:** Kalkış irtifasını girip otomatik kalkış başlatır.
+- **Land:** İniş komutu gönderir.
+- **Loiter:** Bulunduğu noktada bekleme (loiter) komutu.
+- **İrtifaya Git:** Hedef irtifaya tırmanış/iniş komutu.
+- **Konuma Git:** Hedef enlem, boylam ve irtifaya gitme komutu.
+
+9. TELEMETRİ PANELİ
+-------------------
+- **Konum, İrtifa, Hız, Batarya, Uydu, Mod, Durum:** Anlık uçuş verileri ve sistem durumu.
+- **Grafikler:** İrtifa ve hızın zaman içindeki değişimi.
+
+10. GELİŞMİŞ TELEMETRİ PANELİ
+-----------------------------
+- **3D Uçuş Yolu:** Uçuşun 3D görselleştirmesi.
+- **Batarya Grafiği:** Voltaj ve akım değişimi.
+- **Uçuş İstatistikleri:** Maksimum irtifa, hız, toplam mesafe ve süre.
+
+11. GÜVENLİK PANELİ
+-------------------
+- **Geofence:** Uçuş alanı ve maksimum irtifa sınırları.
+- **Hava Durumu:** Rüzgar, sıcaklık, görüş mesafesi ve uygunluk durumu.
+- **Acil İniş Noktaları:** Yeni acil iniş noktası ekleyebilir, mevcutları görebilirsiniz.
+
+12. SIKÇA SORULAN SORULAR (FAQ)
+-------------------------------
+- Bağlantı, telemetri, FPV, waypoint, güvenlik, hava durumu, veri kaydı ve sistem gereksinimleriyle ilgili sık sorulan sorular ve yanıtları.
+
+13. EKSTRA: VERİ KAYDI, SİMÜLASYON, ACİL DURUMLAR
+--------------------------------------------------
+- **Veri Kaydı:** Tüm uçuş verileri otomatik olarak CSV formatında kaydedilir.
+- **Simülasyon:** Gerçek araç olmadan sistemin tüm fonksiyonlarını test edebilirsiniz.
+- **Acil Durumlar:** Acil iniş, motor kesme, eve dönüş gibi tüm acil durum butonları hızlı erişim için kontrol panelinde yer alır.
+
+14. DİĞER ÖNEMLİ FONKSİYONLAR VE DETAYLAR
+-----------------------------------------
+- **FPV (First Person View) Desteği:**
+  - Arayüz, FPV kameradan gelen görüntüyü HUD üzerinde gösterir. Bağlantı sağlandığında otomatik olarak başlar.
+  - **Harici Pencere Yakalama:** "Harici Pencere Seç" butonu ile bilgisayarda açık olan herhangi bir pencereyi HUD'un arkasında gösterebilirsiniz. Bu özellik, harici uygulamalardan gelen video akışlarını (örneğin: DJI Assistant, Mission Planner, vb.) HUD üzerinde görüntülemek için kullanılır.
+    - Kullanım: Uçuş panelindeki "Harici Pencere Seç" butonuna tıklayın
+    - Açık pencereler listesinden istediğiniz pencereyi seçin
+    - Seçilen pencere HUD'un arkasında görüntülenmeye başlar
+    - "Harici Pencereyi Durdur" butonu ile yakalamayı durdurabilirsiniz
+
+- **Harita Paneli Detayları:**
+  - Araç, home noktası, görev noktaları ve poligonlar harita üzerinde farklı ikonlarla gösterilir.
+  - Harita, görev planlama sırasında etkileşimli olarak kullanılır.
+
+- **Görev Oluşturma ve Yükleme:**
+  - Görev panelinde oluşturulan görevler, 'Araca Yükle' ile araca gönderilir. Yükleme sonrası 'Görevi Başlat' ile uçuş başlatılır.
+
+- **Acil İniş Noktaları:**
+  - Güvenlik panelinden yeni acil iniş noktaları eklenebilir. Bu noktalar, acil durumda hızlıca iniş için kullanılır.
+
+- **Geofence ve Hava Durumu:**
+  - Geofence (uçuş alanı sınırı) ve hava durumu verileri, uçuş güvenliği için sürekli izlenir. Limit aşımlarında kullanıcı uyarılır.
+
+- **Simülasyon Modu:**
+  - Gerçek araç olmadan tüm arayüz fonksiyonları test edilebilir. Simülasyon, bağlantı panelinden başlatılır.
+
+- **Veri Kaydı ve Loglar:**
+  - Tüm uçuş ve görev verileri otomatik olarak kaydedilir. Kayıtlar, gerektiğinde analiz için kullanılabilir.
+
+- **Sıkça Sorulan Sorular (FAQ):**
+  - Bağlantı, görev, güvenlik ve diğer konularla ilgili pratik çözümler ve ipuçları içerir.
+
+---
+
+Bu manuel, Lagger GCS arayüzündeki tüm işlevleri ve kullanım detaylarını kapsamaktadır. Herhangi bir sorunda FAQ panelini inceleyin veya geliştirici ekiple iletişime geçin. 

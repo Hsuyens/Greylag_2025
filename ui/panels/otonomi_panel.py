@@ -1,0 +1,45 @@
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton
+from PyQt6.QtCore import pyqtSignal
+
+class OtonomiPanel(QWidget):
+    arm_clicked = pyqtSignal()
+    disarm_clicked = pyqtSignal()
+    takeoff_clicked = pyqtSignal()
+    land_clicked = pyqtSignal()
+    rtl_clicked = pyqtSignal()
+    emergency_land_clicked = pyqtSignal()
+    start_mission_clicked = pyqtSignal()
+    abort_mission_clicked = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        layout = QVBoxLayout()
+        self.arm_btn = QPushButton("Arm")
+        self.arm_btn.clicked.connect(self.arm_clicked.emit)
+        layout.addWidget(self.arm_btn)
+        self.disarm_btn = QPushButton("Disarm")
+        self.disarm_btn.clicked.connect(self.disarm_clicked.emit)
+        layout.addWidget(self.disarm_btn)
+        self.takeoff_btn = QPushButton("Kalkış")
+        self.takeoff_btn.clicked.connect(self.takeoff_clicked.emit)
+        layout.addWidget(self.takeoff_btn)
+        self.land_btn = QPushButton("İniş")
+        self.land_btn.clicked.connect(self.land_clicked.emit)
+        layout.addWidget(self.land_btn)
+        self.rtl_btn = QPushButton("Eve Dön (RTL)")
+        self.rtl_btn.clicked.connect(self.rtl_clicked.emit)
+        layout.addWidget(self.rtl_btn)
+        self.emergency_land_btn = QPushButton("Acil İniş")
+        self.emergency_land_btn.clicked.connect(self.emergency_land_clicked.emit)
+        layout.addWidget(self.emergency_land_btn)
+        self.start_mission_btn = QPushButton("Görev Başlat")
+        self.start_mission_btn.clicked.connect(self.start_mission_clicked.emit)
+        layout.addWidget(self.start_mission_btn)
+        self.abort_mission_btn = QPushButton("Görev İptal")
+        self.abort_mission_btn.clicked.connect(self.abort_mission_clicked.emit)
+        layout.addWidget(self.abort_mission_btn)
+        layout.addStretch(1)
+        self.setLayout(layout) 

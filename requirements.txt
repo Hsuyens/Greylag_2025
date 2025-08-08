@@ -1,0 +1,13 @@
+PyQt6
+PyQt6-WebEngine
+pyqtgraph
+numpy
+folium
+opencv-python
+pyserial
+pymavlink
+requests
+PyOpenGL
+PyOpenGL_accelerate
+pywin32
+Pillow 
