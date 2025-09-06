@@ -9,7 +9,6 @@ import math
 
 # Core components
 from core.mavlink_thread import MAVLinkThread
-from core.fpv_thread import FPVThread
 from core.data_logger import DataLogger
 from core.safety_manager import SafetyManager
 from core.log_replay_thread import LogReplayThread
@@ -25,7 +24,7 @@ from ui.panels.map_panel import MapPanel
 from ui.panels.mission_panel import MissionPlannerPanel
 from ui.panels.connection_panel import ConnectionPanel
 from ui.panels.telemetry_panel import TelemetryPanel
-from ui.panels.safety_panel import SafetyPanel
+# from ui.panels.safety_panel import SafetyPanel  # Kaldırıldı
 from ui.panels.otonomi_panel import OtonomiPanel
 from ui.panels.teknofest_panel import TeknofestPanel
 from ui.panels.loiter_dialog import LoiterDialog
@@ -65,7 +64,8 @@ class LaggerGCS(QMainWindow):
         
         # Threads
         self.mavlink_thread = MAVLinkThread()
-        self.fpv_thread = FPVThread()
+        # FPV devre dışı (yalnızca HUD/Attitude kullanılacak)
+        self.fpv_thread = None
         self.log_replay_thread = None
         self.video_replay_thread = None
         self.log_file_path = None
@@ -139,113 +139,6 @@ class LaggerGCS(QMainWindow):
         
         # MissionPlanner'ın map_panel referansını ayarla
         self.mission_planner.map_panel = self.map_panel
-        
-        # Varsayılan waypoint listesi (altitude: 50m)
-        default_waypoints = [
-            {'lat': 41.0897, 'lon': 28.2008, 'alt': 50},
-            {'lat': 41.0898477, 'lon': 28.2006602, 'alt': 50},
-            {'lat': 41.0899953, 'lon': 28.2005203, 'alt': 50},
-            {'lat': 41.0902177, 'lon': 28.200413, 'alt': 50},
-            {'lat': 41.0904219, 'lon': 28.2004264, 'alt': 50},
-            {'lat': 41.0905553, 'lon': 28.2004881, 'alt': 50},
-            {'lat': 41.0906624, 'lon': 28.2005712, 'alt': 50},
-            {'lat': 41.0907918, 'lon': 28.2006732, 'alt': 50},
-            {'lat': 41.0908565, 'lon': 28.2007697, 'alt': 50},
-            {'lat': 41.090905, 'lon': 28.2011721, 'alt': 50},
-            {'lat': 41.0908, 'lon': 28.2017, 'alt': 50},
-            {'lat': 41.0908, 'lon': 28.2025, 'alt': 50},
-            {'lat': 41.0909272, 'lon': 28.2027717, 'alt': 50},
-            {'lat': 41.0911476, 'lon': 28.2028833, 'alt': 50},
-            {'lat': 41.0917, 'lon': 28.2031, 'alt': 50},
-            {'lat': 41.0920471, 'lon': 28.2028994, 'alt': 50},
-            {'lat': 41.0922, 'lon': 28.2025, 'alt': 50},
-            {'lat': 41.0922, 'lon': 28.2019, 'alt': 50},
-            {'lat': 41.0920815, 'lon': 28.2016039, 'alt': 50},
-            {'lat': 41.0919178, 'lon': 28.2013115, 'alt': 50},
-            {'lat': 41.0916711, 'lon': 28.2013008, 'alt': 50},
-            {'lat': 41.0915356, 'lon': 28.2013504, 'alt': 50},
-            {'lat': 41.0914, 'lon': 28.2014, 'alt': 50},
-            {'lat': 41.0911313, 'lon': 28.2015932, 'alt': 50},
-            {'lat': 41.0908626, 'lon': 28.2017863, 'alt': 50},
-            {'lat': 41.0908, 'lon': 28.2019, 'alt': 50},
-            {'lat': 41.0905654, 'lon': 28.202143, 'alt': 50},
-            {'lat': 41.0903, 'lon': 28.2022, 'alt': 50},
-            {'lat': 41.0900034, 'lon': 28.2021216, 'alt': 50},
-            {'lat': 41.0898195, 'lon': 28.2020491, 'alt': 50},
-            {'lat': 41.0897, 'lon': 28.2019, 'alt': 50},
-            {'lat': 41.0897, 'lon': 28.2014, 'alt': 50},
-            {'lat': 41.0897, 'lon': 28.2008, 'alt': 50},
-            {'lat': 41.0898336, 'lon': 28.2005981, 'alt': 50},
-            {'lat': 41.089832, 'lon': 28.2004774, 'alt': 50},
-            {'lat': 41.0902258, 'lon': 28.2003379, 'alt': 50},
-            {'lat': 41.0904502, 'lon': 28.2003459, 'alt': 50},
-            {'lat': 41.0906078, 'lon': 28.2003915, 'alt': 50},
-            {'lat': 41.090717, 'lon': 28.2004988, 'alt': 50},
-            {'lat': 41.0908343, 'lon': 28.2005954, 'alt': 50},
-            {'lat': 41.0909111, 'lon': 28.2007161, 'alt': 50},
-            {'lat': 41.0909242, 'lon': 28.2008515, 'alt': 50},
-            {'lat': 41.0909353, 'lon': 28.2010446, 'alt': 50},
-            {'lat': 41.0909373, 'lon': 28.2012632, 'alt': 50},
-            {'lat': 41.0908494, 'lon': 28.2016227, 'alt': 50},
-            {'lat': 41.0907807, 'lon': 28.202228, 'alt': 50},
-            {'lat': 41.0907989, 'lon': 28.202599, 'alt': 50},
-            {'lat': 41.090907, 'lon': 28.2028055, 'alt': 50},
-            {'lat': 41.0911466, 'lon': 28.2029597, 'alt': 50},
-            {'lat': 41.0914073, 'lon': 28.2031073, 'alt': 50},
-            {'lat': 41.0917025, 'lon': 28.2031381, 'alt': 50},
-            {'lat': 41.0918885, 'lon': 28.2030456, 'alt': 50},
-            {'lat': 41.0920633, 'lon': 28.2029597, 'alt': 50},
-            {'lat': 41.0921806, 'lon': 28.2027532, 'alt': 50},
-            {'lat': 41.0922644, 'lon': 28.2025172, 'alt': 50},
-            {'lat': 41.0922665, 'lon': 28.2019378, 'alt': 50},
-            {'lat': 41.0921543, 'lon': 28.2015891, 'alt': 50},
-            {'lat': 41.0919552, 'lon': 28.2012485, 'alt': 50},
-            {'lat': 41.0916853, 'lon': 28.2012217, 'alt': 50},
-            {'lat': 41.0915418, 'lon': 28.201227, 'alt': 50},
-            {'lat': 41.0913841, 'lon': 28.2012887, 'alt': 50},
-            {'lat': 41.0911051, 'lon': 28.2014926, 'alt': 50},
-            {'lat': 41.0907756, 'lon': 28.2018051, 'alt': 50},
-            {'lat': 41.0905674, 'lon': 28.2020733, 'alt': 50},
-            {'lat': 41.0903147, 'lon': 28.2021497, 'alt': 50},
-            {'lat': 41.0901763, 'lon': 28.2021202, 'alt': 50},
-            {'lat': 41.0900428, 'lon': 28.2020706, 'alt': 50},
-            {'lat': 41.089875, 'lon': 28.202021, 'alt': 50},
-            {'lat': 41.0897709, 'lon': 28.2018735, 'alt': 50},
-            {'lat': 41.0897669, 'lon': 28.201455, 'alt': 50},
-            {'lat': 41.089862, 'lon': 28.2005203, 'alt': 50},
-            {'lat': 41.0895364, 'lon': 28.200016, 'alt': 50},
-            {'lat': 41.0894313, 'lon': 28.1993669, 'alt': 50},
-            {'lat': 41.0893464, 'lon': 28.1988305, 'alt': 50},
-            {'lat': 41.0892049, 'lon': 28.1984979, 'alt': 50},
-            {'lat': 41.0889583, 'lon': 28.1982565, 'alt': 50},
-            {'lat': 41.0885499, 'lon': 28.198058, 'alt': 50},
-            {'lat': 41.0881294, 'lon': 28.1980741, 'alt': 50},
-            {'lat': 41.087899, 'lon': 28.1984979, 'alt': 50},
-            {'lat': 41.0878545, 'lon': 28.198809, 'alt': 50},
-            {'lat': 41.0878077, 'lon': 28.1990558, 'alt': 50},
-            {'lat': 41.0879111, 'lon': 28.1993026, 'alt': 50},
-            {'lat': 41.0880122, 'lon': 28.1995386, 'alt': 50},
-            {'lat': 41.0881618, 'lon': 28.1995812, 'alt': 50},
-            {'lat': 41.0885499, 'lon': 28.2000643, 'alt': 50},
-            {'lat': 41.0893302, 'lon': 28.2006007, 'alt': 50},
-            {'lat': 41.0899771, 'lon': 28.201029, 'alt': 50},
-            {'lat': 41.0904663, 'lon': 28.2013464, 'alt': 50},
-            {'lat': 41.0910324, 'lon': 28.2017373, 'alt': 50},
-            {'lat': 41.0913877, 'lon': 28.2018346, 'alt': 50},
-            {'lat': 41.0913477, 'lon': 28.2019311, 'alt': 50},
-        ]
-        self.mission_planner.set_waypoints(default_waypoints)
-        self.map_panel.update_map()
-        self.mission_panel.update_mission_info()
-
-        # Bağlantı paneli başlangıç durumu
-        self.connection_panel.connect_btn.setText("Bağlandı")
-        from ui.theme import ThemeColors
-        self.connection_panel.connect_btn.setStyleSheet(ThemeColors.BUTTON_DANGER)
-        self.connection_panel.port_combo.clear()
-        self.connection_panel.port_combo.addItem("COM8")
-        self.connection_panel.port_combo.setCurrentText("COM8")
-        self.connection_panel.port_combo.setEnabled(False)
 
     def connect_signals(self):
         # Connection Panel Signals
@@ -283,9 +176,7 @@ class LaggerGCS(QMainWindow):
         self.mavlink_thread.emergency_triggered.connect(self.handle_emergency)
         self.mavlink_thread.mission_completed.connect(self.handle_mission_completed)
         
-        # FPV Thread Signals
-        self.fpv_thread.frame_received.connect(self.flight_panel.hud.update_fpv)
-        self.fpv_thread.error_occurred.connect(self.handle_error)
+        # FPV devre dışı
         
         # Flight Panel Signals (Harici pencere seçimi)
         self.flight_panel.external_window_selected.connect(self.handle_external_window_selected)
@@ -308,6 +199,19 @@ class LaggerGCS(QMainWindow):
         self.loglama_panel.stop_clicked.connect(self.on_log_stop)
         self.loglama_panel.seek_changed.connect(self.on_log_seek)
         self.loglama_panel.speed_changed.connect(self.on_log_speed)
+
+        # Teknofest Panel Signals
+        self.teknofest_panel.start_figure8_mission.connect(self.handle_figure8_mission)
+        self.teknofest_panel.start_payload_mission.connect(self.handle_payload_mission)
+        if hasattr(self.teknofest_panel, 'start_cargo_mission'):
+            self.teknofest_panel.start_cargo_mission.connect(self.handle_cargo_mission)
+        self.teknofest_panel.pause_mission.connect(self.handle_pause_mission)
+        self.teknofest_panel.resume_mission.connect(self.handle_resume_mission)
+        self.teknofest_panel.abort_mission.connect(self.handle_abort_mission)
+        self.teknofest_panel.activate_magnet1.connect(self.handle_activate_magnet1)
+        self.teknofest_panel.deactivate_magnet1.connect(self.handle_deactivate_magnet1)
+        self.teknofest_panel.activate_magnet2.connect(self.handle_activate_magnet2)
+        self.teknofest_panel.deactivate_magnet2.connect(self.handle_deactivate_magnet2)
         
     def try_connect(self, port: str, baud: int) -> None:
         """MAVLink bağlantısını dene"""
@@ -327,24 +231,47 @@ class LaggerGCS(QMainWindow):
         if self.mavlink_thread.connect(port, baud):
             self.mavlink_thread.start()
             self.connection_panel.set_status(True)
-            self.control_panel.log_message(f"MAVLink bağlantısı başarılı: {port}")
+            self.control_panel.log_message(f"MAVLink bağlantısı başarılı: {port} @ {baud}")
             self.flight_start_time = time.time()
             
-            # FPV bağlantısını dene
-            if self.fpv_thread.connect():
-                self.fpv_thread.start()
-                self.control_panel.log_message("FPV bağlantısı başarılı")
-            else:
-                self.control_panel.log_message("FPV bağlantısı başarısız")
+            # Hall Effect sensör bağlantısını dene (COM6 varsayılan)
+            try:
+                if hasattr(self.mavlink_thread, 'connect_hall_sensor'):
+                    hall_port = 'COM6'  # Varsayılan port, kullanıcı değiştirebilir
+                    if self.mavlink_thread.connect_hall_sensor(hall_port):
+                        self.control_panel.log_message(f"Hall Effect sensör bağlandı: {hall_port}")
+                    else:
+                        self.control_panel.log_message(f"Hall Effect sensör bağlantısı başarısız: {hall_port}")
+            except Exception as e:
+                self.control_panel.log_message(f"Hall Effect sensör bağlantı hatası: {e}")
+            
+            # FPV devre dışı
         else:
             self.connection_panel.set_status(False)
             self.control_panel.log_message("MAVLink bağlantısı başarısız.")
             
     def try_disconnect(self) -> None:
         """Bağlantıyı kes"""
-        self.mavlink_thread.stop()
-        self.fpv_thread.stop()
+        try:
+            if hasattr(self, 'mavlink_thread') and self.mavlink_thread:
+                # Hall Effect sensör bağlantısını kes
+                if hasattr(self.mavlink_thread, 'disconnect_hall_sensor'):
+                    try:
+                        self.mavlink_thread.disconnect_hall_sensor()
+                    except Exception as e:
+                        self.control_panel.log_message(f"Hall Effect sensör bağlantı kesme hatası: {e}")
+                
+                self.mavlink_thread.stop()
+        except Exception as e:
+            self.control_panel.log_message(f"Bağlantı kesme hatası (mavlink): {e}")
+        try:
+            if self.fpv_thread and self.fpv_thread.isRunning():
+                self.fpv_thread.stop()
+        except Exception as e:
+            self.control_panel.log_message(f"Bağlantı kesme hatası (fpv): {e}")
+        # UI durumunu sıfırla ve port listesini yenile
         self.connection_panel.set_status(False)
+        self.connection_panel.refresh_ports()
         self.control_panel.log_message("Bağlantı kesildi.")
         
     def handle_telemetry(self, data: Dict[str, Any]) -> None:
@@ -354,9 +281,18 @@ class LaggerGCS(QMainWindow):
             return
         try:
             # Eksik voltage, current, battery, temp, cell_voltage, rssi, roll, pitch gibi değerleri son bilinenle tamamla
-            for key in ["voltage", "current", "battery", "temperature", "rssi", "roll", "pitch"]:
+            for key in ["voltage", "current", "battery", "temperature", "rssi", "roll", "pitch", "satellites", "groundspeed"]:
                 if key not in data and key in self.last_telemetry:
                     data[key] = self.last_telemetry[key]
+            # TelemetryPanel/HUD ad eşlemeleri
+            if 'temperature' in data and 'temp' not in data:
+                data['temp'] = data['temperature']
+            if 'satellites' in data and 'sat' not in data:
+                data['sat'] = data['satellites']
+            if 'system_status' in data and 'status' not in data:
+                data['status'] = data['system_status']
+            if 'speed' not in data and 'groundspeed' in data:
+                data['speed'] = data['groundspeed']
             # Son telemetriyi güncelle
             self.last_telemetry.update(data)
 
@@ -371,6 +307,16 @@ class LaggerGCS(QMainWindow):
                 self.flight_panel.hud.update_telemetry({'mode': data['mode']})
                 self.telemetry_panel.update_telemetry({'mode': data['mode']})
             self.telemetry_panel.update_telemetry(data)
+            # Hall Effect sensör verilerini oku ve telemetri panelinde göster
+            if hasattr(self.mavlink_thread, 'read_hall_sensor_data'):
+                try:
+                    hall_data = self.mavlink_thread.read_hall_sensor_data()
+                    if hall_data:
+                        # Hall Effect verilerini telemetri panelinde göster
+                        self.telemetry_panel.update_telemetry(hall_data)
+                except Exception as e:
+                    print(f"Hall Effect sensör okuma hatası: {e}")
+            
             # Yeni kutucuklara veri aktarımı:
             if self.data_logger.log_file:
                 self.data_logger.log_data(data)
@@ -378,6 +324,8 @@ class LaggerGCS(QMainWindow):
             hud_data = data.copy()
             if 'mode' not in hud_data and hasattr(self.flight_panel.hud, 'telemetry'):
                 hud_data['mode'] = self.flight_panel.hud.telemetry.get('mode', 'UNKNOWN')
+            if 'speed' not in hud_data and 'groundspeed' in hud_data:
+                hud_data['speed'] = hud_data['groundspeed']
             self.flight_panel.hud.update_telemetry(hud_data)
         except Exception as e:
             self.control_panel.log_message(f'HATA (telemetry): {e}')
@@ -432,6 +380,8 @@ class LaggerGCS(QMainWindow):
             self.map_panel.update_vehicle_position(lat, lon, data.get('heading', 0))
             # TelemetryPanel'e sadece konum verilerini gönder
             pos_data = {k: v for k, v in data.items() if k in ['lat', 'lon', 'heading', 'satellites']}
+            if 'satellites' in pos_data:
+                pos_data['sat'] = pos_data['satellites']
             self.telemetry_panel.update_telemetry(pos_data)
             # Ev konumunu ayarla (ilk pozisyon)
             if self.safety_manager.home_position is None:
@@ -617,7 +567,7 @@ class LaggerGCS(QMainWindow):
 
     def handle_mission_upload(self, waypoints: list) -> None:
         """Görev yükleme"""
-        if not waypoints:
+        if not waypoints and not getattr(self.mission_planner, 'raw_mission_items', None):
             self.control_panel.log_message("HATA: Waypoint listesi boş!")
             return
             
@@ -630,7 +580,13 @@ class LaggerGCS(QMainWindow):
             lat = wp.get('lat')
             lon = wp.get('lon')
             alt = wp.get('alt', 0)
+            command = wp.get('command', 16)  # MAV_CMD_NAV_WAYPOINT varsayılan
             
+            # DO_SET_RELAY komutları için koordinat kontrolü yapma
+            if command == 181:  # MAV_CMD_DO_SET_RELAY
+                self.control_panel.log_message(f"Relay komutu {i+1}: Relay {wp.get('param1', 0)} = {wp.get('param2', 0)}")
+                continue
+                
             if lat is None or lon is None:
                 self.control_panel.log_message(f"HATA: Eksik waypoint koordinatları: {i}")
                 return
@@ -645,29 +601,45 @@ class LaggerGCS(QMainWindow):
                 self.control_panel.log_message(f"HATA: Geçersiz waypoint irtifası: {i} ({alt}m)")
                 return
                 
-        self.control_panel.log_message(f"Görev yükleniyor: {len(waypoints)} waypoint...")
-        
-        # MAVLink thread'e görev yükleme komutu gönder
-        if hasattr(self.mavlink_thread, 'upload_mission'):
-            result = self.mavlink_thread.upload_mission(waypoints)
-            if result:
-                self.control_panel.log_message("Görev başarıyla araca yüklendi.")
-                self.data_logger.log_action(f"Görev yüklendi: {len(waypoints)} waypoint")
-                
-                # Görev bilgilerini logla
-                for i, wp in enumerate(waypoints):
-                    self.control_panel.log_message(f"WP {i+1}: {wp['lat']:.6f}, {wp['lon']:.6f}, {wp['alt']}m")
-            else:
-                self.control_panel.log_message("Görev yükleme başarısız!")
-                self.data_logger.log_error("Görev yükleme başarısız.")
+        # Raw köprü modu varsa onu kullan
+        raw_items = getattr(self.mission_planner, 'raw_mission_items', None)
+        if raw_items:
+            self.control_panel.log_message(f"Görev yükleniyor (.waypoints köprüsü): {len(raw_items)} öğe...")
+            result = self.mavlink_thread.upload_mission_raw(raw_items) if hasattr(self.mavlink_thread, 'upload_mission_raw') else False
         else:
-            self.control_panel.log_message("HATA: MAVLink thread'de upload_mission fonksiyonu bulunamadı!")
+            self.control_panel.log_message(f"Görev yükleniyor: {len(waypoints)} waypoint...")
+            result = self.mavlink_thread.upload_mission(waypoints) if hasattr(self.mavlink_thread, 'upload_mission') else False
+
+        if result:
+            self.control_panel.log_message("Görev başarıyla araca yüklendi.")
+            self.data_logger.log_action(f"Görev yüklendi: {len(raw_items) if raw_items else len(waypoints)} öğe")
+            # Görev bilgilerini logla (yalnızca işlenmiş waypoint formatında detay ver)
+            if not raw_items:
+                for i, wp in enumerate(waypoints):
+                    command = wp.get('command', 16)
+                    if command == 181:  # DO_SET_RELAY
+                        relay_num = wp.get('param1', 0)
+                        relay_state = wp.get('param2', 0)
+                        self.control_panel.log_message(f"WP {i+1}: DO_SET_RELAY {relay_num} = {relay_state}")
+                    else:
+                        self.control_panel.log_message(f"WP {i+1}: {wp['lat']:.6f}, {wp['lon']:.6f}, {wp['alt']}m")
+        else:
+            self.control_panel.log_message("Görev yükleme başarısız!")
+            self.data_logger.log_error("Görev yükleme başarısız.")
 
     def handle_start_mission(self) -> None:
         """Görev başlatma"""
         self.control_panel.log_message("Görev başlatılıyor...")
         self.teknofest_panel.log_message("Görev başlatılıyor...")
         
+        # Sabit kanat için AUTO moda geç ve sonra MISSION_START gönder
+        try:
+            if hasattr(self.mavlink_thread, 'set_mode'):
+                if not self.mavlink_thread.set_mode('AUTO'):
+                    self.control_panel.log_message("UYARI: AUTO moda geçilemedi, yine de görevi başlatmayı deneyeceğim.")
+        except Exception as e:
+            self.control_panel.log_message(f"UYARI: Mod ayarlama hatası: {e}")
+
         if hasattr(self.mavlink_thread, 'start_mission'):
             result = self.mavlink_thread.start_mission()
             if result:
@@ -978,15 +950,14 @@ class LaggerGCS(QMainWindow):
             self.control_panel.log_message("Bağlantı yok, disarm komutu gönderilemedi.")
 
     def handle_takeoff(self):
-        alt = 20  # Sabit kalkış irtifası
-        if hasattr(self.mavlink_thread, 'arm_and_takeoff'):
-            result = self.mavlink_thread.arm_and_takeoff(alt)
-            if result:
-                self.control_panel.log_message(f"Takeoff ({alt} m) komutu gönderildi.")
-            else:
-                self.control_panel.log_message("Takeoff komutu başarısız.")
-        else:
-            self.control_panel.log_message("Takeoff fonksiyonu bulunamadı!")
+        # Sabit kanat için önerilen akış: Görev içinde TAKEOFF waypoint + AUTO mod + start_mission
+        self.control_panel.log_message("Sabit kanat kalkış akışı başlatılıyor (AUTO + MISSION_START)")
+        try:
+            if hasattr(self.mavlink_thread, 'set_mode'):
+                self.mavlink_thread.set_mode('AUTO')
+        except Exception as e:
+            self.control_panel.log_message(f"UYARI: AUTO mod ayarlanamadı: {e}")
+        self.handle_start_mission()
 
     def handle_land(self):
         if hasattr(self.mavlink_thread, 'land'):
@@ -1083,6 +1054,29 @@ class LaggerGCS(QMainWindow):
             
         except Exception as e:
             self.teknofest_panel.log_message(f"Yük bırakma görevi hatası: {str(e)}")
+            self.teknofest_panel.update_mission_status("ERROR")
+    
+    def handle_cargo_mission(self, waypoints):
+        """Kargo Operasyonu görevini başlat"""
+        try:
+            # Görev durumunu güncelle ve logla
+            self.teknofest_panel.update_mission_status("CARGO", 0, len(waypoints), 0)
+            self.teknofest_panel.log_message(f"Kargo Operasyonu başlatıldı. {len(waypoints)} waypoint yüklendi.")
+
+            # Waypoint'leri mission planner'a yükle
+            if hasattr(self.mission_planner, 'set_waypoints'):
+                self.mission_planner.set_waypoints(waypoints)
+                self.teknofest_panel.log_message("Waypoint'ler mission planner'a yüklendi.")
+
+            # Haritayı güncelle
+            if hasattr(self.map_panel, 'update_map'):
+                self.map_panel.update_map()
+
+            # Görevi başlat (AUTO + MISSION_START akışı içerir)
+            self.handle_start_mission()
+        
+        except Exception as e:
+            self.teknofest_panel.log_message(f"Kargo Operasyonu hatası: {str(e)}")
             self.teknofest_panel.update_mission_status("ERROR")
     
     def handle_resume_mission(self):

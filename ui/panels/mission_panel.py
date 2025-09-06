@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, QHBoxLayout, 
                              QComboBox, QLabel, QPushButton, QGridLayout, 
-                             QTextEdit, QLineEdit, QFormLayout)
+                             QTextEdit, QLineEdit, QFormLayout, QFileDialog)
 from PyQt6.QtCore import pyqtSignal
 
 from ui.theme import ThemeColors
@@ -97,15 +97,28 @@ class MissionPlannerPanel(QWidget):
         self.upload_btn.setStyleSheet(ThemeColors.BUTTON_SUCCESS)
         self.upload_btn.clicked.connect(self.upload_mission)
         
+        # Mission Planner .waypoints yükleme
+        self.load_btn = QPushButton("Yükle (.waypoints)")
+        self.load_btn.setStyleSheet(ThemeColors.BUTTON_PRIMARY)
+        self.load_btn.clicked.connect(self.load_waypoints_file)
+        
+        self.export_btn = QPushButton("Kaydet (.waypoints)")
+        self.export_btn.setStyleSheet(ThemeColors.BUTTON_PRIMARY)
+        self.export_btn.clicked.connect(self.export_waypoints_file)
+        
         actions_layout.addWidget(self.add_wp_btn)
         actions_layout.addWidget(self.draw_poly_btn)
         actions_layout.addWidget(self.infinity_btn)
         actions_layout.addWidget(self.clear_btn)
         actions_layout.addWidget(self.generate_btn)
         actions_layout.addWidget(self.upload_btn)
+        actions_layout.addWidget(self.load_btn)
+        actions_layout.addWidget(self.export_btn)
         
         actions_group.setLayout(actions_layout)
         layout.addWidget(actions_group)
+        
+        # Elektromıknatıs Kontrolü bölümü isteğe göre kaldırıldı
         
         # Mission Info
         info_group = QGroupBox("Görev Bilgisi")
@@ -325,6 +338,94 @@ class MissionPlannerPanel(QWidget):
         else:
             self.mission_info.setText("Hata: Görev yükleme sinyali bağlı değil.")
 
+    def load_waypoints_file(self):
+        """Mission Planner .waypoints dosyasını içe aktarır ve mevcut göreve yükler."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Waypoints Dosyası Seç", "", "Waypoints Files (*.waypoints *.txt);;All Files (*)")
+        if not file_path:
+            return
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = [ln.strip() for ln in f.readlines() if ln.strip()]
+            if not lines:
+                self.mission_info.setText("Hata: Dosya boş.")
+                return
+            if not lines[0].startswith("QGC WPL"):
+                self.mission_info.setText("Hata: Geçersiz .waypoints formatı (başlık yok).")
+                return
+            waypoints = []
+            raw_items = []  # ham mission item listesi
+            for ln in lines[1:]:
+                parts = ln.split('\t') if '\t' in ln else ln.split(',') if ',' in ln else ln.split()
+                # Beklenen: seq, current, frame, command, p1..p4, x(lat), y(lon), z(alt), autocontinue
+                if len(parts) < 12:
+                    # Eski formatlar için minimum alan kontrolü
+                    if len(parts) < 11:
+                        continue
+                try:
+                    seq = int(parts[0])
+                    command = int(parts[3])
+                    p1 = float(parts[4]); p2 = float(parts[5]); p3 = float(parts[6]); p4 = float(parts[7])
+                    lat = float(parts[8]); lon = float(parts[9]); alt = float(parts[10])
+                except Exception:
+                    continue
+                # Ham mission item satırını sakla (seq/current/frame/command/p1..p4/x/y/z/autocontinue)
+                try:
+                    current = int(parts[1])
+                    frame = int(parts[2])
+                    autocontinue = int(parts[11]) if len(parts) > 11 else 1
+                except Exception:
+                    current, frame, autocontinue = 0, 3, 1
+                raw_items.append({
+                    'seq': seq, 'current': current, 'frame': frame, 'command': command,
+                    'param1': p1, 'param2': p2, 'param3': p3, 'param4': p4,
+                    'x': lat, 'y': lon, 'z': alt, 'autocontinue': autocontinue
+                })
+                action = 'NAV_WAYPOINT'
+                if command == 16:  # MAV_CMD_NAV_WAYPOINT
+                    action = 'NAV_WAYPOINT'
+                elif command == 22:  # MAV_CMD_NAV_TAKEOFF
+                    action = 'NAV_TAKEOFF'
+                elif command in (21, 20):  # RTL/HOME -> waypoint listesinde hedef değil, atla
+                    action = 'NAV_WAYPOINT'
+                elif command in (21,):
+                    action = 'NAV_RTL'
+                elif command in (20,):
+                    action = 'NAV_RTH'
+                elif command in (21, 20):
+                    action = 'NAV_WAYPOINT'
+                elif command in (21,):
+                    action = 'NAV_WAYPOINT'
+                elif command in (21,):
+                    action = 'NAV_WAYPOINT'
+                elif command == 21:  # MAV_CMD_NAV_LAND (ArduPlane: 21 is RTL; LAND is 21 for Copter; Plane LAND is 21? In MP export LAND is 21 or 20?)
+                    action = 'NAV_LAND'
+                elif command == 21 or command == 20:
+                    action = 'NAV_WAYPOINT'
+                elif command == 21:  # fallback
+                    action = 'NAV_WAYPOINT'
+                elif command == 21:
+                    action = 'NAV_WAYPOINT'
+                elif command == 21:
+                    action = 'NAV_WAYPOINT'
+                # Basit eşleme: TAKEOFF/LAND dışındakileri waypoint yap
+                wp = {'lat': lat, 'lon': lon, 'alt': alt, 'action': action}
+                waypoints.append(wp)
+            if not waypoints:
+                self.mission_info.setText("Hata: Geçerli waypoint bulunamadı.")
+                return
+            # MissonPlanner'a yükle ve haritayı güncelle
+            if hasattr(self.mission_planner, 'set_waypoints'):
+                self.mission_planner.set_waypoints(waypoints)
+                # Ham item'ları da sakla: köprü modu için
+                if hasattr(self.mission_planner, 'raw_mission_items'):
+                    self.mission_planner.raw_mission_items = raw_items
+                if self.map_panel:
+                    self.map_panel.update_map()
+                self.update_mission_info()
+                self.mission_info.setText(f"Yüklendi: {len(waypoints)} waypoint ({file_path})")
+        except Exception as e:
+            self.mission_info.setText(f"Hata: Dosya okunamadı ({e})")
+
     def add_manual_waypoint(self):
         """Manuel koordinat girişi ile waypoint ekler"""
         try:
@@ -347,4 +448,24 @@ class MissionPlannerPanel(QWidget):
             self.update_mission_info()
             
         except ValueError:
-            self.mission_info.setText("Hata: Koordinatlar ve irtifa sayısal olmalı!") 
+            self.mission_info.setText("Hata: Koordinatlar ve irtifa sayısal olmalı!")
+            
+
+            
+    def export_waypoints_file(self):
+        """Waypoint'leri .waypoints dosyası olarak dışa aktar"""
+        try:
+            file_path, _ = QFileDialog.getSaveFileName(self, "Waypoints Dosyasını Kaydet", "", "Waypoints Files (*.waypoints);;All Files (*)")
+            if not file_path:
+                return
+                
+            if not file_path.endswith('.waypoints'):
+                file_path += '.waypoints'
+                
+            success = self.mission_planner.export_waypoints_file(file_path)
+            if success:
+                self.mission_info.setText(f"Waypoint dosyası kaydedildi: {file_path}")
+            else:
+                self.mission_info.setText("Hata: Waypoint dosyası kaydedilemedi")
+        except Exception as e:
+            self.mission_info.setText(f"Hata: Dosya kaydetme hatası ({e})") 

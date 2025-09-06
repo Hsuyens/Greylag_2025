@@ -36,12 +36,17 @@ class MAVLinkThread(QThread):
         
         self.payload_release_pin = 0  # GPIO pin for payload release
         self.home_position = None
-        
+        # Elektromıknatıslar için relay indexleri (AUX OUT 1 -> 0, AUX OUT 2 -> 1 varsayılan)
+        self.magnet1_relay_index = 0
+        self.magnet2_relay_index = 1
+
         # Hall effect sensörü için
         self.hall_serial_port = None  # serial.Serial nesnesi
         self.hall_port_name = None    # Port adı (ör: 'COM6')
         self.hall_baudrate = 9600
         self._hall_lock = threading.Lock()  # Hall sensör için thread güvenliği
+        self.hall_effect_value = 0
+        self.magnetic_field_value = 0
         
         # Son konum (otomatik irtifa için)
         self.last_lat = None
@@ -53,6 +58,16 @@ class MAVLinkThread(QThread):
         self.connection_timeout = 10  # saniye (5'ten 10'a çıkarıldı)
         self.armed = False  # <-- ARM durumu
         self.last_mode = None  # <-- MODU KAYDET
+        
+    def set_magnet_relay_indices(self, magnet1_index: int, magnet2_index: int) -> None:
+        """Elektromıknatısların bağlı olduğu AUX relay indexlerini ayarla."""
+        try:
+            self.magnet1_relay_index = int(magnet1_index)
+            self.magnet2_relay_index = int(magnet2_index)
+        except Exception:
+            # Geçersiz girişte varsayılanlara dön
+            self.magnet1_relay_index = 0
+            self.magnet2_relay_index = 1
         
     def _emit_error(self, error_message: str) -> None:
         """Spam önleme ile hata gönder"""
@@ -86,8 +101,6 @@ class MAVLinkThread(QThread):
                     self.connection = None
                     self._emit_error("Bağlantı testi başarısız")
                     return False
-                    
-                self._emit_error(f"MAVLink bağlantısı başarılı: {port} @ {baud}")
                 return True
                 
         except Exception as e:
@@ -173,31 +186,21 @@ class MAVLinkThread(QThread):
         return emergency_conditions
         
     def release_payload(self) -> bool:
-        """Yük bırakma komutu gönder"""
+        """Yük bırakma komutu gönder (relay off)."""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Yük bırakma hatası: Bağlantı aktif değil.")
                 return False
                 
         try:
-            # Send command to release payload
-            if hasattr(self.connection, 'mav'):
-                self.connection.mav.command_long_send(
-                    self.connection.target_system,
-                    self.connection.target_component,
-                    mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
-                    0,  # Confirmation
-                    self.payload_release_pin,  # Servo number
-                    0,  # PWM value (0 = release)
-                    0, 0, 0, 0, 0, 0  # Unused parameters
-                )
-            return True
+            # Varsayılan olarak Magnet1'i kapat
+            return self.deactivate_magnet1()
         except Exception as e:
             self._emit_error(f"Yük bırakma hatası: {e}")
             return False
     
     def activate_magnet1(self) -> bool:
-        """Elektromıknatıs 1'i aktifleştir"""
+        """Elektromıknatıs 1'i aktifleştir (Main Out 1)"""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Elektromıknatıs 1 hatası: Bağlantı aktif değil.")
@@ -208,10 +211,10 @@ class MAVLinkThread(QThread):
                 self.connection.mav.command_long_send(
                     self.connection.target_system,
                     self.connection.target_component,
-                    mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+                    mavutil.mavlink.MAV_CMD_DO_SET_RELAY,
                     0,  # Confirmation
-                    1,  # Servo number (magnet1)
-                    2000,  # PWM value (2000 = activate)
+                    self.magnet1_relay_index,  # Relay number (Main Out 1)
+                    1,  # State (1 = on)
                     0, 0, 0, 0, 0, 0  # Unused parameters
                 )
             return True
@@ -220,7 +223,7 @@ class MAVLinkThread(QThread):
             return False
     
     def deactivate_magnet1(self) -> bool:
-        """Elektromıknatıs 1'i deaktifleştir"""
+        """Elektromıknatıs 1'i deaktifleştir (Main Out 1)"""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Elektromıknatıs 1 hatası: Bağlantı aktif değil.")
@@ -231,10 +234,10 @@ class MAVLinkThread(QThread):
                 self.connection.mav.command_long_send(
                     self.connection.target_system,
                     self.connection.target_component,
-                    mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+                    mavutil.mavlink.MAV_CMD_DO_SET_RELAY,
                     0,  # Confirmation
-                    1,  # Servo number (magnet1)
-                    1000,  # PWM value (1000 = deactivate)
+                    self.magnet1_relay_index,  # Relay number (Main Out 1)
+                    0,  # State (0 = off)
                     0, 0, 0, 0, 0, 0  # Unused parameters
                 )
             return True
@@ -243,7 +246,7 @@ class MAVLinkThread(QThread):
             return False
     
     def activate_magnet2(self) -> bool:
-        """Elektromıknatıs 2'yi aktifleştir"""
+        """Elektromıknatıs 2'yi aktifleştir (Main Out 2)"""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Elektromıknatıs 2 hatası: Bağlantı aktif değil.")
@@ -254,10 +257,10 @@ class MAVLinkThread(QThread):
                 self.connection.mav.command_long_send(
                     self.connection.target_system,
                     self.connection.target_component,
-                    mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+                    mavutil.mavlink.MAV_CMD_DO_SET_RELAY,
                     0,  # Confirmation
-                    2,  # Servo number (magnet2)
-                    2000,  # PWM value (2000 = activate)
+                    self.magnet2_relay_index,  # Relay number (Main Out 2)
+                    1,  # State (1 = on)
                     0, 0, 0, 0, 0, 0  # Unused parameters
                 )
             return True
@@ -266,7 +269,7 @@ class MAVLinkThread(QThread):
             return False
     
     def deactivate_magnet2(self) -> bool:
-        """Elektromıknatıs 2'yi deaktifleştir"""
+        """Elektromıknatıs 2'yi deaktifleştir (Main Out 2)"""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Elektromıknatıs 2 hatası: Bağlantı aktif değil.")
@@ -277,10 +280,10 @@ class MAVLinkThread(QThread):
                 self.connection.mav.command_long_send(
                     self.connection.target_system,
                     self.connection.target_component,
-                    mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+                    mavutil.mavlink.MAV_CMD_DO_SET_RELAY,
                     0,  # Confirmation
-                    2,  # Servo number (magnet2)
-                    1000,  # PWM value (1000 = deactivate)
+                    self.magnet2_relay_index,  # Relay number (Main Out 2)
+                    0,  # State (0 = off)
                     0, 0, 0, 0, 0, 0  # Unused parameters
                 )
             return True
@@ -312,6 +315,49 @@ class MAVLinkThread(QThread):
             return True
         except Exception as e:
             self._emit_error(f"Eve dönüş komutu hatası: {e}")
+            return False
+
+    def set_mode(self, mode_name: str) -> bool:
+        """Uçuş modunu ayarla (ArduPlane custom mode)."""
+        with self._connection_lock:
+            if not self.connection or not self.is_connected:
+                self._emit_error("Mod değiştirme hatası: Bağlantı aktif değil.")
+                return False
+
+        # ArduPlane için custom_mode eşlemesi
+        mode_map = {
+            'MANUAL': 0,
+            'CIRCLE': 1,
+            'STABILIZE': 2,
+            'TRAINING': 3,
+            'ACRO': 4,
+            'FLY_BY_WIRE_A': 5,
+            'FLY_BY_WIRE_B': 6,
+            'CRUISE': 7,
+            'AUTOTUNE': 8,
+            'AUTO': 10,
+            'RTL': 11,
+            'LOITER': 12,
+            'TAKEOFF': 14,
+            'GUIDED': 16,
+        }
+
+        mode_name = (mode_name or '').upper()
+        if mode_name not in mode_map:
+            self._emit_error(f"Bilinmeyen mod: {mode_name}")
+            return False
+
+        try:
+            if hasattr(self.connection, 'mav'):
+                # set_mode_send(base_mode, custom_mode) için target_system gerekir
+                self.connection.mav.set_mode_send(
+                    self.connection.target_system,
+                    1,  # MAV_MODE_FLAG_CUSTOM_MODE yerine 1 kullan
+                    mode_map[mode_name]
+                )
+            return True
+        except Exception as e:
+            self._emit_error(f"Mod değiştirme hatası: {e}")
             return False
             
     def switch_to_manual(self) -> bool:
@@ -390,7 +436,7 @@ class MAVLinkThread(QThread):
             return False
             
     def connect_hall_sensor(self, port_name: str, baudrate: int = 9600) -> bool:
-        """Hall effect sensörüne bağlan"""
+        """Hall Effect sensörü için seri port bağlantısını kur"""
         try:
             with self._hall_lock:
                 if self.hall_serial_port:
@@ -398,33 +444,59 @@ class MAVLinkThread(QThread):
                         self.hall_serial_port.close()
                     except:
                         pass
-                    
-                self.hall_serial_port = serial.Serial(port_name, baudrate, timeout=2)
+                
+                self.hall_serial_port = serial.Serial(port_name, baudrate, timeout=1)
                 self.hall_port_name = port_name
                 self.hall_baudrate = baudrate
+                print(f"[HALL] Sensör bağlandı: {port_name}")
                 return True
                 
         except Exception as e:
-            self._emit_error(f"Hall sensör bağlantı hatası: {e}")
+            self._emit_error(f"Hall Effect sensör bağlantı hatası: {e}")
             return False
-            
-    def read_hall_effect_value(self) -> Optional[int]:
-        """Hall effect sensöründen değer oku"""
+    
+    def read_hall_sensor_data(self) -> Dict[str, Any]:
+        """Hall Effect sensör verilerini oku"""
         try:
             with self._hall_lock:
                 if not self.hall_serial_port or not self.hall_serial_port.is_open:
-                    return None
-                    
+                    return {'hall_effect': 0, 'magnetic_field': 0}
+                
                 # Sensörden veri oku
                 if self.hall_serial_port.in_waiting > 0:
-                    data = self.hall_serial_port.readline().decode().strip()
-                    return int(data) if data.isdigit() else None
-                    
+                    line = self.hall_serial_port.readline().decode('utf-8').strip()
+                    if line:
+                        # Sensör verisi formatı: "HALL:123,MAG:456" gibi
+                        try:
+                            parts = line.split(',')
+                            for part in parts:
+                                if part.startswith('HALL:'):
+                                    self.hall_effect_value = int(part.split(':')[1])
+                                elif part.startswith('MAG:'):
+                                    self.magnetic_field_value = int(part.split(':')[1])
+                        except:
+                            pass
+                
+                return {
+                    'hall_effect': self.hall_effect_value,
+                    'magnetic_field': self.magnetic_field_value
+                }
+                
         except Exception as e:
-            self._emit_error(f"Hall sensör okuma hatası: {e}")
+            self._emit_error(f"Hall Effect sensör okuma hatası: {e}")
+            return {'hall_effect': 0, 'magnetic_field': 0}
+    
+    def disconnect_hall_sensor(self) -> None:
+        """Hall Effect sensör bağlantısını kes"""
+        with self._hall_lock:
+            if self.hall_serial_port:
+                try:
+                    self.hall_serial_port.close()
+                except:
+                    pass
+                self.hall_serial_port = None
+                self.hall_port_name = None
             
-        return None
-        
     def goto_altitude(self, target_alt: float) -> bool:
         """Belirli irtifaya git komutu"""
         with self._connection_lock:
@@ -476,30 +548,51 @@ class MAVLinkThread(QThread):
                     lat = wp.get('lat', 0)
                     lon = wp.get('lon', 0)
                     alt = wp.get('alt', 0)
+                    command = wp.get('command', 16)  # MAV_CMD_NAV_WAYPOINT varsayılan
+                    param1 = wp.get('param1', 0)
+                    param2 = wp.get('param2', 0)
+                    param3 = wp.get('param3', 0)
+                    param4 = wp.get('param4', 0)
                     
-                    # Koordinat doğrulaması - daha esnek
-                    if not (-90.1 <= lat <= 90.1) or not (-180.1 <= lon <= 180.1):
-                        self._emit_error(f"Geçersiz waypoint koordinatları: {i}")
-                        return False
-                        
-                    # İrtifa doğrulaması - daha esnek
-                    if alt < -50 or alt > 3000:  # 3000m maksimum
-                        self._emit_error(f"Geçersiz waypoint irtifası: {i}")
-                        return False
-                        
-                    # MAVLink mission item gönder
-                    self.connection.mav.mission_item_send(
-                        self.connection.target_system,
-                        self.connection.target_component,
-                        i,  # Sequence
-                        mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
-                        mavutil.mavlink.MAV_CMD_NAV_WAYPOINT,
-                        0, 0,  # Current, autocontinue
-                        0, 0, 0, 0,  # Param 1-4
-                        alt,  # Altitude
-                        0, 0,  # X, Y
-                        lat, lon  # Lat, Lon
-                    )
+                    # DO_SET_RELAY komutları için koordinat kontrolü yapma
+                    if command == 181:  # MAV_CMD_DO_SET_RELAY
+                        # MAVLink mission item gönder
+                        self.connection.mav.mission_item_send(
+                            self.connection.target_system,
+                            self.connection.target_component,
+                            int(i),  # Sequence - integer olarak cast et
+                            mavutil.mavlink.MAV_FRAME_MISSION,
+                            command,  # MAV_CMD_DO_SET_RELAY
+                            0, 0,  # Current, autocontinue
+                            param1, param2, param3, param4,  # Param 1-4
+                            0,  # Altitude (relay için kullanılmaz)
+                            0, 0,  # X, Y (relay için kullanılmaz)
+                            0, 0  # Lat, Lon (relay için kullanılmaz)
+                        )
+                    else:
+                        # Normal waypoint komutları için koordinat doğrulaması
+                        if not (-90.1 <= lat <= 90.1) or not (-180.1 <= lon <= 180.1):
+                            self._emit_error(f"Geçersiz waypoint koordinatları: {i}")
+                            return False
+                            
+                        # İrtifa doğrulaması - daha esnek
+                        if alt < -50 or alt > 3000:  # 3000m maksimum
+                            self._emit_error(f"Geçersiz waypoint irtifası: {i}")
+                            return False
+                            
+                        # MAVLink mission item gönder
+                        self.connection.mav.mission_item_send(
+                            self.connection.target_system,
+                            self.connection.target_component,
+                            int(i),  # Sequence - integer olarak cast et
+                            mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                            command,  # Command
+                            0, 0,  # Current, autocontinue
+                            param1, param2, param3, param4,  # Param 1-4
+                            alt,  # Altitude
+                            0, 0,  # X, Y
+                            lat, lon  # Lat, Lon
+                        )
                     
                     # Her waypoint için ACK bekle
                     ack_received = False
@@ -521,7 +614,7 @@ class MAVLinkThread(QThread):
                 self.connection.mav.mission_count_send(
                     self.connection.target_system,
                     self.connection.target_component,
-                    len(waypoints)
+                    int(len(waypoints))  # Integer olarak cast et
                 )
                 
                 # Mission count ACK bekle
@@ -544,15 +637,91 @@ class MAVLinkThread(QThread):
         except Exception as e:
             self._emit_error(f"Görev yükleme hatası: {e}")
             return False
+
+    def upload_mission_raw(self, items: List[Dict[str, Any]]) -> bool:
+        """
+        QGC WPL formatından gelen ham mission item'ları aynen Pixhawk'a yaz.
+        items: dict list with keys: seq,current,frame,command,param1..4,x,y,z,autocontinue
+        """
+        with self._connection_lock:
+            if not self.connection or not self.is_connected:
+                self._emit_error("Görev yükleme hatası: Bağlantı aktif değil.")
+                return False
+
+        try:
+            if not hasattr(self.connection, 'mav'):
+                self._emit_error("MAV nesnesi yok")
+                return False
+
+            # Mission clear
+            self.connection.mav.mission_clear_all_send(
+                self.connection.target_system,
+                self.connection.target_component
+            )
+
+            # Mission count
+            self.connection.mav.mission_count_send(
+                self.connection.target_system,
+                self.connection.target_component,
+                int(len(items))
+            )
+
+            # Gönderim
+            for it in items:
+                seq = int(it.get('seq', 0))
+                current = int(it.get('current', 0))
+                frame = int(it.get('frame', mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT))
+                command = int(it.get('command', 16))
+                p1 = float(it.get('param1', 0))
+                p2 = float(it.get('param2', 0))
+                p3 = float(it.get('param3', 0))
+                p4 = float(it.get('param4', 0))
+                x = float(it.get('x', 0))
+                y = float(it.get('y', 0))
+                z = float(it.get('z', 0))
+                autocont = int(it.get('autocontinue', 1))
+
+                self.connection.mav.mission_item_send(
+                    self.connection.target_system,
+                    self.connection.target_component,
+                    seq,
+                    frame,
+                    command,
+                    current,
+                    autocont,
+                    p1, p2, p3, p4,
+                    x, y, z
+                )
+
+            # Basit ACK bekleme
+            start_time = time.time()
+            while time.time() - start_time < 3.0:
+                try:
+                    msg = self.connection.recv_match(type='MISSION_ACK', timeout=0.1)
+                    if msg and msg.type == mavutil.mavlink.MAV_MISSION_ACCEPTED:
+                        return True
+                except:
+                    pass
+
+            self._emit_error("Ham mission ACK alınamadı")
+            return False
+        except Exception as e:
+            self._emit_error(f"Ham görev yükleme hatası: {e}")
+            return False
             
     def start_mission(self) -> bool:
-        """Görev başlat"""
+        """Görev başlat - önce AUTO moda geç, sonra MISSION_START gönder"""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Görev başlatma hatası: Bağlantı aktif değil.")
                 return False
                 
         try:
+            # Önce AUTO moda geç
+            if not self.set_mode('AUTO'):
+                self._emit_error("UYARI: AUTO moda geçilemedi, yine de görevi başlatmayı deneyeceğim.")
+                
+            # MISSION_START komutu gönder
             if hasattr(self.connection, 'mav'):
                 self.connection.mav.command_long_send(
                     self.connection.target_system,
@@ -586,6 +755,27 @@ class MAVLinkThread(QThread):
             return True
         except Exception as e:
             self._emit_error(f"Görev duraklatma hatası: {e}")
+            return False
+
+    def resume_mission(self) -> bool:
+        """Görevi devam ettir"""
+        with self._connection_lock:
+            if not self.connection or not self.is_connected:
+                self._emit_error("Görev devam ettirme hatası: Bağlantı aktif değil.")
+                return False
+        try:
+            if hasattr(self.connection, 'mav'):
+                self.connection.mav.command_long_send(
+                    self.connection.target_system,
+                    self.connection.target_component,
+                    mavutil.mavlink.MAV_CMD_DO_PAUSE_CONTINUE,
+                    0,
+                    0,  # Continue
+                    0, 0, 0, 0, 0, 0
+                )
+            return True
+        except Exception as e:
+            self._emit_error(f"Görev devam ettirme hatası: {e}")
             return False
             
     def abort_mission(self) -> bool:
@@ -657,7 +847,7 @@ class MAVLinkThread(QThread):
         return True
         
     def arm_and_takeoff(self, target_alt: float) -> bool:
-        """Arm ve takeoff"""
+        """Arm ve takeoff - sabit kanat için görev tabanlı"""
         with self._connection_lock:
             if not self.connection or not self.is_connected:
                 self._emit_error("Arm/Takeoff hatası: Bağlantı aktif değil.")
@@ -684,14 +874,23 @@ class MAVLinkThread(QThread):
                     0, 0, 0, 0, 0, 0  # Unused parameters
                 )
                 
-                # Takeoff command
-                self.connection.mav.command_long_send(
+                # Sabit kanat için TAKEOFF waypoint'i oluştur ve gönder
+                # Bu waypoint görev listesine eklenir ve AUTO modda çalıştırılır
+                self.connection.mav.mission_item_send(
                     self.connection.target_system,
                     self.connection.target_component,
+                    0,  # Sequence
+                    mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
                     mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
-                    0,  # Confirmation
-                    0, 0, 0, 0, 0, 0, target_alt  # Parameters
+                    0, 0,  # Current, autocontinue
+                    0, 0, 0, 0,  # Param 1-4
+                    target_alt,  # Altitude
+                    0, 0,  # X, Y
+                    self.home_position['lat'], self.home_position['lon']  # Lat, Lon
                 )
+                
+                # AUTO moda geç
+                self.set_mode('AUTO')
                 
             return True
         except Exception as e:
@@ -734,13 +933,26 @@ class MAVLinkThread(QThread):
         """Ana thread döngüsü"""
         while self.running:
             try:
+                # Koruma: kritik alanlar yoksa varsayılanları ayarla
+                if not hasattr(self, 'connection_timeout'):
+                    self.connection_timeout = 10
+                if not hasattr(self, 'last_heartbeat'):
+                    self.last_heartbeat = None
+                if not hasattr(self, 'armed'):
+                    self.armed = False
                 with self._connection_lock:
                     if not self.connection or not self.is_connected:
                         time.sleep(1)
                         continue
                         
                 # Mesajları oku
-                msg = self.connection.recv_match(blocking=False, timeout=0.1)
+                try:
+                    msg = self.connection.recv_match(blocking=False, timeout=0.1)
+                except Exception as ser_e:
+                    # Seri port hatalarını bastırıp bildir, döngüye devam et
+                    self._emit_error(f"Seri okuma hatası: {ser_e}")
+                    time.sleep(0.2)
+                    continue
                 if msg:
                     self._process_message(msg)
                     

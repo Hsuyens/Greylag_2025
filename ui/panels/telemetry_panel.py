@@ -1,5 +1,5 @@
 import time
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QGridLayout, QLabel, QFrame, QHBoxLayout, QScrollArea
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QGridLayout, QLabel, QFrame, QHBoxLayout, QScrollArea, QPushButton
 import pyqtgraph as pg
 from PyQt6.QtCore import Qt
 
@@ -16,6 +16,8 @@ class TelemetryPanel(QWidget):
         self.last_roll = None  # Son roll değeri
         self.last_pitch = None  # Son pitch değeri
         self.last_alt = None
+        self.last_heading = None  # Son geçerli heading
+        self.last_mode = None  # Son geçerli mod metni
         self.flight_time = 0
         self.arm_start_time = None
         self.armed = False
@@ -48,14 +50,11 @@ class TelemetryPanel(QWidget):
                 ("Batarya (%)", 'battery'),
                 ("Voltaj (V)", 'voltage'),
                 ("Akım (A)", 'current'),
-                ("Sıcaklık (°C)", 'temp'),
                 ("Hücre Voltajı (V)", 'cell_voltage'),  # Yeni kutucuk
             ]),
             ("Haberleşme", [
-                ("RSSI", 'rssi'),
                 ("Uydu", 'sat'),
                 ("Mod", 'mode'),
-                ("Durum", 'status'),
             ]),
             ("Hava Durumu", [
                 ("Rüzgar", 'wind'),
@@ -63,37 +62,113 @@ class TelemetryPanel(QWidget):
                 ("Görüş", 'visibility'),
                 ("Durum", 'weather_status'),
             ]),
+            ("Sensör Verileri", [
+                ("Hall Effect", 'hall_effect'),
+                ("Manyetik Alan", 'magnetic_field'),
+            ]),
         ]
 
         for cat_title, items in categories:
-            cat_group = QGroupBox(cat_title)
-            cat_group.setStyleSheet(ThemeColors.PANEL_STYLE)
-            cat_layout = QGridLayout()
-            for i, (label_text, key) in enumerate(items):
-                box = QFrame()
-                box.setFrameShape(QFrame.Shape.Box)
-                box.setLineWidth(2)
-                box.setStyleSheet("background: #222; border-radius: 12px; border: 2px solid #444;")
-                vbox = QVBoxLayout()
-                title = QLabel(label_text)
-                title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                title.setStyleSheet("font-size: 14px; color: #fff; font-weight: bold;")
-                value = QLabel("--")
-                value.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                value.setStyleSheet("font-size: 32px; font-weight: bold; color: #fff;")
-                vbox.addWidget(title)
-                vbox.addWidget(value)
-                box.setLayout(vbox)
-                cat_layout.addWidget(box, i // 2, i % 2)
-                self.labels[key] = value
-            cat_group.setLayout(cat_layout)
-            layout.addWidget(cat_group)
+            # Hava Durumu kategorisi için özel işlem
+            if cat_title == "Hava Durumu":
+                weather_container = QWidget()
+                weather_layout = QVBoxLayout(weather_container)
+                
+                # Switch header
+                header_widget = QWidget()
+                header_layout = QHBoxLayout(header_widget)
+                header_layout.setContentsMargins(10, 5, 10, 5)
+                
+                weather_label = QLabel("Hava Durumu")
+                weather_label.setStyleSheet("font-size: 16px; color: #fff; font-weight: bold;")
+                
+                self.weather_toggle = QPushButton("Kapalı")
+                self.weather_toggle.setCheckable(True)
+                self.weather_toggle.setStyleSheet("""
+                    QPushButton {
+                        background: #444; color: #fff; border: 2px solid #666; 
+                        border-radius: 15px; padding: 5px 15px; font-weight: bold;
+                    }
+                    QPushButton:checked {
+                        background: #0d7377; border-color: #14a085;
+                    }
+                """)
+                self.weather_toggle.clicked.connect(self.toggle_weather)
+                
+                header_layout.addWidget(weather_label)
+                header_layout.addStretch()
+                header_layout.addWidget(self.weather_toggle)
+                
+                # Weather content group (başlangıçta gizli)
+                self.weather_group = QGroupBox()
+                self.weather_group.setStyleSheet(ThemeColors.PANEL_STYLE)
+                cat_layout = QGridLayout()
+                for i, (label_text, key) in enumerate(items):
+                    box = QFrame()
+                    box.setFrameShape(QFrame.Shape.Box)
+                    box.setLineWidth(2)
+                    box.setStyleSheet("background: #222; border-radius: 12px; border: 2px solid #444;")
+                    vbox = QVBoxLayout()
+                    title = QLabel(label_text)
+                    title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    title.setStyleSheet("font-size: 14px; color: #fff; font-weight: bold;")
+                    value = QLabel("--")
+                    value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    value.setStyleSheet("font-size: 32px; font-weight: bold; color: #fff;")
+                    vbox.addWidget(title)
+                    vbox.addWidget(value)
+                    box.setLayout(vbox)
+                    cat_layout.addWidget(box, i // 2, i % 2)
+                    self.labels[key] = value
+                self.weather_group.setLayout(cat_layout)
+                self.weather_group.hide()  # Başlangıçta gizli
+                
+                weather_layout.addWidget(header_widget)
+                weather_layout.addWidget(self.weather_group)
+                layout.addWidget(weather_container)
+            else:
+                # Normal kategoriler
+                cat_group = QGroupBox(cat_title)
+                cat_group.setStyleSheet(ThemeColors.PANEL_STYLE)
+                cat_layout = QGridLayout()
+                for i, (label_text, key) in enumerate(items):
+                    box = QFrame()
+                    box.setFrameShape(QFrame.Shape.Box)
+                    box.setLineWidth(2)
+                    box.setStyleSheet("background: #222; border-radius: 12px; border: 2px solid #444;")
+                    vbox = QVBoxLayout()
+                    title = QLabel(label_text)
+                    title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    title.setStyleSheet("font-size: 14px; color: #fff; font-weight: bold;")
+                    value = QLabel("--")
+                    value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    # Mod kutucuğu için daha küçük font
+                    if key == 'mode':
+                        value.setStyleSheet("font-size: 18px; font-weight: bold; color: #fff;")
+                    else:
+                        value.setStyleSheet("font-size: 32px; font-weight: bold; color: #fff;")
+                    vbox.addWidget(title)
+                    vbox.addWidget(value)
+                    box.setLayout(vbox)
+                    cat_layout.addWidget(box, i // 2, i % 2)
+                    self.labels[key] = value
+                cat_group.setLayout(cat_layout)
+                layout.addWidget(cat_group)
 
         layout.addStretch(1)
         scroll.setWidget(content)
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll)
         self.setLayout(main_layout)
+
+    def toggle_weather(self):
+        """Hava durumu panelini aç/kapat"""
+        if self.weather_toggle.isChecked():
+            self.weather_group.show()
+            self.weather_toggle.setText("Açık")
+        else:
+            self.weather_group.hide()
+            self.weather_toggle.setText("Kapalı")
 
     def create_group(self, title, widgets):
         group = QGroupBox(title)
@@ -117,6 +192,28 @@ class TelemetryPanel(QWidget):
         return plot
 
     def update_telemetry(self, data):
+        # Mod bilgisini stabilize et: boş/0 gelirse son geçerli metni koru
+        mode_val = data.get('mode')
+        if isinstance(mode_val, str) and mode_val.strip():
+            self.last_mode = mode_val
+        elif isinstance(mode_val, (int, float)) and mode_val != 0:
+            # Sayı gelirse metne çevir ve sakla
+            self.last_mode = str(mode_val)
+        elif mode_val in (None, 0, "0", "") and self.last_mode is not None:
+            data['mode'] = self.last_mode
+
+        # Heading'i stabilize et: anlık 0 değerlerini filtrele
+        heading_val = data.get('heading')
+        if heading_val is not None:
+            try:
+                heading_num = float(heading_val)
+                if heading_num == 0 and self.last_heading is not None:
+                    data['heading'] = self.last_heading
+                else:
+                    self.last_heading = heading_num
+            except Exception:
+                pass
+
         # Sadece roll ve pitch için son değeri sakla ve tamamla
         if 'roll' in data and data['roll'] is not None:
             self.last_roll = data['roll']
@@ -144,7 +241,7 @@ class TelemetryPanel(QWidget):
         # Son bilinen değerleri sakla ve eksikse onları kullan
         if not hasattr(self, 'last_values'):
             self.last_values = {}
-        for key in ['alt', 'climb', 'speed', 'voltage', 'current', 'battery', 'temp', 'rssi', 'lat', 'lon', 'heading']:
+        for key in ['alt', 'climb', 'speed', 'voltage', 'current', 'battery', 'temp', 'rssi', 'lat', 'lon', 'heading', 'hall_effect', 'magnetic_field']:
             if key in data and data[key] is not None:
                 self.last_values[key] = data[key]
             elif key in self.last_values:
@@ -154,7 +251,8 @@ class TelemetryPanel(QWidget):
             'speed': "{:.1f}", 'climb': "{:.1f}", 'roll': "{:.1f}", 'pitch': "{:.1f}",
             'battery': "{}%", 'voltage': "{:.1f}", 'current': "{:.1f}", 'temp': "{:.1f}",
             'cell_voltage': "{:.2f}",
-            'rssi': "{}", 'sat': "{}", 'mode': "{}", 'status': "{}", 'flight_time': "{} sn"
+            'rssi': "{}", 'sat': "{}", 'mode': "{}", 'status': "{}", 'flight_time': "{} sn",
+            'hall_effect': "{}", 'magnetic_field': "{}"
         }
         for key, label in self.labels.items():
             if key == 'cell_voltage':
@@ -190,6 +288,12 @@ class TelemetryPanel(QWidget):
             elif key == 'flight_time':
                 value = data.get('flight_time', 0)
                 label.setText(format_map['flight_time'].format(value))
+            elif key == 'hall_effect':
+                value = data.get('hall_effect', 0)
+                label.setText(format_map['hall_effect'].format(value))
+            elif key == 'magnetic_field':
+                value = data.get('magnetic_field', 0)
+                label.setText(format_map['magnetic_field'].format(value))
             else:
                 value = data.get(key)
                 if value is None:

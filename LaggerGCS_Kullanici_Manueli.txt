@@ -10,7 +10,7 @@ Lagger GCS, insansız hava aracı (İHA) görevlerinizi planlamak, yönetmek ve 
 Ana pencere üç ana sütundan oluşur:
 - Sol: Uçuş Paneli ve Kontrol Paneli
 - Orta: Harita Paneli ve Görev (Mission) Paneli
-- Sağ: Bağlantı, Telemetri, Gelişmiş Telemetri, Güvenlik ve Otonomi Panelleri (sekme şeklinde)
+- Sağ: Bağlantı, Telemetri, Eylemler (Otonomi), Teknofest ve Loglama panelleri (sekme şeklinde)
 
 3. BAĞLANTI PANELİ
 ------------------
@@ -31,11 +31,11 @@ Ana pencere üç ana sütundan oluşur:
 Kontrol paneli, uçuş sırasında aracı ve görevi yönetmek için ana komutları içerir. Her butonun işlevi aşağıda detaylıca açıklanmıştır:
 
 - **Görevi Başlat (F5):**
-  - Yüklenen görevi başlatır. Araca "MISSION_START" komutu gönderilir ve araç, yüklenen waypoint veya görev rotasını otonom olarak takip etmeye başlar.
+  - Yüklenen görevi başlatır. Araca önce "AUTO" mod ayarlanır, ardından "MISSION_START" komutu gönderilir; araç, yüklenen waypoint rotasını otonom olarak takip eder.
   - Kullanım: Görev yüklendikten sonra bu butona basılır.
 
 - **Görevi Duraklat (F6):**
-  - Aracın mevcut görevini geçici olarak duraklatır. Araç, bulunduğu noktada loiter (bekleme) moduna geçer ve yeni komut gelene kadar sabit kalır.
+  - Aracın mevcut görevini geçici olarak duraklatır. İsteğe bağlı loiter komutu verilebilir.
   - Kullanım: Görev sırasında mola vermek veya acil bir durumda aracı bekletmek için kullanılır.
 
 - **Görevi İptal Et (F7):**
@@ -95,9 +95,21 @@ Kontrol paneli, uçuş sırasında aracı ve görevi yönetmek için ana komutla
 8. OTONOMİ PANELİ
 -----------------
 - **Arm/Disarm:** Aracı arm veya disarm yapar.
-- **Takeoff:** Kalkış irtifasını girip otomatik kalkış başlatır.
-- **Land:** İniş komutu gönderir.
+- **Kalkış:** Sabit kanat için görev tabanlı kalkış akışını tetikler (AUTO + MISSION_START). Görevde TAKEOFF waypoint bulunmalıdır.
+- **İniş:** İniş komutu gönderir. Sabit kanatta LAND waypoint içeren görev önerilir.
 - **Loiter:** Bulunduğu noktada bekleme (loiter) komutu.
+
+9. HALL EFFECT SENSÖR SİSTEMİ
+-----------------------------
+- **Sensör Tipi:** HW 477 Hall Effect Sensör Modülü
+- **Bağlantı:** Pixhawk Main Out 7'ye bağlanır
+- **Veri Formatı:** "HALL:123,MAG:456" şeklinde seri port üzerinden
+- **Otomatik Bağlantı:** MAVLink bağlantısı kurulduğunda otomatik olarak COM6 portundan bağlanmaya çalışır
+- **Telemetri Gösterimi:** Sağ panel Telemetri sekmesinde "Sensör Verileri" kategorisinde görüntülenir
+  - Hall Effect: Manyetik alan değişim değeri (0-999)
+  - Manyetik Alan: Mutlak manyetik alan değeri (0-499)
+- **Kullanım Alanı:** Payload release sisteminde manyetik alan değişimini tespit etmek
+- **Test:** `test_hall_sensor.py` scripti ile sensör bağlantısı test edilebilir
 - **İrtifaya Git:** Hedef irtifaya tırmanış/iniş komutu.
 - **Konuma Git:** Hedef enlem, boylam ve irtifaya gitme komutu.
 

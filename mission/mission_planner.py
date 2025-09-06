@@ -5,6 +5,7 @@ class MissionPlanner:
     def __init__(self):
         self.waypoints = []
         self.polygons = []
+        self.raw_mission_items = []  # Yüklü .waypoints dosyasındaki ham mission item listesi
         self.mission_types = {
             'waypoint': 'Waypoint Uçuşu',
             'grid': 'Grid Tarama', 
@@ -115,7 +116,7 @@ class MissionPlanner:
         return True
 
     def clear_infinity_points(self):
-        """Sonsuzluk işareti geçici noktalarını temizler"""
+        """Sonsuzluk işareti için geçici noktaları temizle"""
         self.infinity_points = []
 
     def generate_waypoint_mission(self, altitude, speed):
@@ -254,4 +255,107 @@ class MissionPlanner:
         """Waypoint listesini doğrudan ayarla ve haritayı güncelle"""
         self.waypoints = waypoints
         if self.map_panel:
-            self.map_panel.update_map() 
+            self.map_panel.update_map()
+            
+    def clear_infinity_points(self):
+        """Sonsuzluk işareti için geçici noktaları temizle"""
+        self.infinity_points = []
+
+    def add_relay_command(self, relay_number, state, delay_seconds=0):
+        """DO_SET_RELAY komutu ekler (MAV_CMD_DO_SET_RELAY = 181)"""
+        relay_command = {
+            'lat': 0,  # Relay komutları için koordinat gerekmez
+            'lon': 0,
+            'alt': 0,
+            'command': 181,  # MAV_CMD_DO_SET_RELAY
+            'param1': relay_number,  # Relay number (0-15)
+            'param2': state,  # 0=off, 1=on
+            'param3': delay_seconds,  # Delay before execution
+            'param4': 0,  # Unused
+            'seq': len(self.waypoints)
+        }
+        self.waypoints.append(relay_command)
+        return len(self.waypoints) - 1
+        
+    def add_magnet1_activate(self, delay_seconds=0):
+        """Elektromıknatıs 1'i aktifleştir (Main Out 1)"""
+        return self.add_relay_command(0, 1, delay_seconds)  # Relay 0 = Main Out 1
+        
+    def add_magnet1_deactivate(self, delay_seconds=0):
+        """Elektromıknatıs 1'i deaktifleştir (Main Out 1)"""
+        return self.add_relay_command(0, 0, delay_seconds)  # Relay 0 = Main Out 1
+        
+    def add_magnet2_activate(self, delay_seconds=0):
+        """Elektromıknatıs 2'yi aktifleştir (Main Out 2)"""
+        return self.add_relay_command(1, 1, delay_seconds)  # Relay 1 = Main Out 2
+        
+    def add_magnet2_deactivate(self, delay_seconds=0):
+        """Elektromıknatıs 2'yi deaktifleştir (Main Out 2)"""
+        return self.add_relay_command(1, 0, delay_seconds)  # Relay 1 = Main Out 2
+        
+    def add_payload_release_sequence(self, delay_before_release=2):
+        """Yük bırakma sekansı ekler (her iki mıknatısı da kapatır)"""
+        # Önce mıknatıs 1'i kapat
+        self.add_magnet1_deactivate(0)
+        # Sonra mıknatıs 2'yi kapat
+        self.add_magnet2_deactivate(delay_before_release)
+        
+    def export_waypoints_file(self, filename):
+        """Waypoint'leri .waypoints dosyası formatında dışa aktar"""
+        try:
+            with open(filename, 'w') as f:
+                f.write("QGC WPL 110\n")  # QGroundControl waypoint format header
+                
+                for i, wp in enumerate(self.waypoints):
+                    # QGC waypoint format: INDEX CURRENT AUTOFRAME COMMAND PARAM1 PARAM2 PARAM3 PARAM4 LAT LON ALT LABEL
+                    current = 1 if i == 0 else 0  # İlk waypoint current
+                    autoframe = 3  # MAV_FRAME_GLOBAL_RELATIVE_ALT
+                    command = wp.get('command', 16)  # MAV_CMD_NAV_WAYPOINT
+                    param1 = wp.get('param1', 0)
+                    param2 = wp.get('param2', 0)
+                    param3 = wp.get('param3', 0)
+                    param4 = wp.get('param4', 0)
+                    lat = wp.get('lat', 0)
+                    lon = wp.get('lon', 0)
+                    alt = wp.get('alt', 0)
+                    label = f"WP{i+1}"
+                    
+                    f.write(f"{i}\t{current}\t{autoframe}\t{command}\t{param1}\t{param2}\t{param3}\t{param4}\t{lat:.7f}\t{lon:.7f}\t{alt}\t{label}\n")
+                    
+            return True
+        except Exception as e:
+            print(f"Waypoint dosyası yazma hatası: {e}")
+            return False
+            
+    def import_waypoints_file(self, filename):
+        """QGroundControl .waypoints dosyasından waypoint'leri içe aktar"""
+        try:
+            self.waypoints = []
+            with open(filename, 'r') as f:
+                lines = f.readlines()
+                
+                # Header'ı atla
+                if lines and lines[0].startswith("QGC WPL"):
+                    lines = lines[1:]
+                    
+                for line in lines:
+                    if line.strip():
+                        parts = line.strip().split('\t')
+                        if len(parts) >= 11:
+                            wp = {
+                                'seq': int(parts[0]),
+                                'command': int(parts[3]),
+                                'param1': float(parts[4]),
+                                'param2': float(parts[5]),
+                                'param3': float(parts[6]),
+                                'param4': float(parts[7]),
+                                'lat': float(parts[8]),
+                                'lon': float(parts[9]),
+                                'alt': float(parts[10])
+                            }
+                            self.waypoints.append(wp)
+                            
+            return True
+        except Exception as e:
+            print(f"Waypoint dosyası okuma hatası: {e}")
+            return False 
